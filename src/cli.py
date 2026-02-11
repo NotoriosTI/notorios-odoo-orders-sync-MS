@@ -174,12 +174,11 @@ async def cmd_run(ctx: AppContext) -> None:
     await scheduler.start()
 
     conns = await ctx.conn_repo.list_enabled()
-    if not conns:
-        print("No hay conexiones habilitadas. Usa 'odoo-poller add' para crear una.")
-        await scheduler.stop()
-        return
-
-    print(f"Polling activo para {len(conns)} conexión(es). Ctrl+C para detener.\n")
+    if conns:
+        print(f"Polling activo para {len(conns)} conexión(es). Ctrl+C para detener.\n")
+    else:
+        print("No hay conexiones habilitadas. Esperando que se agreguen...")
+        print("Usa 'python -m src.main add' para crear una.\n")
 
     stop_event = asyncio.Event()
     loop = asyncio.get_event_loop()
@@ -189,8 +188,30 @@ async def cmd_run(ctx: AppContext) -> None:
         except NotImplementedError:
             pass
 
+    # Revisar periódicamente si hay conexiones nuevas/removidas
+    async def watch_connections() -> None:
+        known_ids: set[int] = {c.id for c in conns}
+        while not stop_event.is_set():
+            await asyncio.sleep(15)
+            current = await ctx.conn_repo.list_enabled()
+            current_ids = {c.id for c in current}
+
+            for conn in current:
+                if conn.id not in known_ids:
+                    logger.info("Nueva conexión detectada: #%d '%s'", conn.id, conn.name)
+                    await scheduler.add_connection(conn)
+
+            for removed_id in known_ids - current_ids:
+                logger.info("Conexión removida/deshabilitada: #%d", removed_id)
+                await scheduler.remove_connection(removed_id)
+
+            known_ids = current_ids
+
+    watcher = asyncio.create_task(watch_connections())
+
     await stop_event.wait()
 
+    watcher.cancel()
     print("\nDeteniendo polling...")
     await scheduler.stop()
     print("Detenido.")
@@ -201,6 +222,7 @@ async def cmd_add(ctx: AppContext) -> None:
 
     conn = Connection(
         name=_prompt("Nombre"),
+        external_id=_prompt("External ID (generado por StockMaster)"),
         odoo_url=_prompt("URL Odoo (ej: https://miempresa.odoo.com)"),
         odoo_db=_prompt("Base de datos Odoo"),
         odoo_username=_prompt("Usuario Odoo"),
@@ -225,12 +247,13 @@ async def cmd_list(ctx: AppContext) -> None:
         print("No hay conexiones configuradas. Usa 'odoo-poller add' para crear una.")
         return
 
-    headers = ["ID", "Nombre", "URL", "DB", "Intervalo", "Estado", "Circuit", "Último Sync"]
+    headers = ["ID", "Nombre", "External ID", "URL", "DB", "Intervalo", "Estado", "Circuit", "Último Sync"]
     rows = []
     for c in connections:
         rows.append([
             str(c.id),
             c.name,
+            c.external_id or "(sin configurar)",
             c.odoo_url,
             c.odoo_db,
             f"{c.poll_interval_seconds}s",
@@ -252,6 +275,7 @@ async def cmd_edit(ctx: AppContext, conn_id: int) -> None:
     print("(Deja vacío para mantener el valor actual)\n")
 
     conn.name = _prompt("Nombre", default=conn.name)
+    conn.external_id = _prompt("External ID (StockMaster)", default=conn.external_id)
     conn.odoo_url = _prompt("URL Odoo", default=conn.odoo_url)
     conn.odoo_db = _prompt("Base de datos", default=conn.odoo_db)
     conn.odoo_username = _prompt("Usuario", default=conn.odoo_username)
@@ -316,6 +340,7 @@ async def cmd_test(ctx: AppContext, conn_id: int) -> None:
         if conn.webhook_secret:
             headers["X-Webhook-Secret"] = conn.webhook_secret
 
+        headers["X-Odoo-Connection-Id"] = conn.external_id
         payload = {"source": "odoo", "test": True, "connection_name": conn.name}
         try:
             async with httpx.AsyncClient(timeout=15.0) as http:
@@ -486,10 +511,10 @@ async def cmd_send(ctx: AppContext, connection_id: int, last: int) -> None:
 
                 batch = await fetch_batch_data(client, orders)
                 payload = map_order_to_webhook_payload(
-                    orders[0], batch, conn.odoo_db, conn.id
+                    orders[0], batch, conn.odoo_db, conn.external_id
                 )
                 await sender.send(
-                    conn.webhook_url, payload, conn.webhook_secret, conn.id
+                    conn.webhook_url, payload, conn.webhook_secret, conn.external_id
                 )
                 print(f"  {so.odoo_order_name}: OK")
                 ok += 1

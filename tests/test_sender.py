@@ -20,11 +20,11 @@ async def test_send_success():
             "https://webhook.example.com/hook",
             {"order": "test"},
             webhook_secret="my-secret",
-            connection_id=5,
+            connection_external_id="abc-123",
         )
 
     assert captured["headers"]["x-webhook-secret"] == "my-secret"
-    assert captured["headers"]["x-odoo-connection-id"] == "5"
+    assert captured["headers"]["x-odoo-connection-id"] == "abc-123"
 
 
 @pytest.mark.asyncio

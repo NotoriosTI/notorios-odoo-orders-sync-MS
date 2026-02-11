@@ -81,18 +81,20 @@ Intento 5+: espera 600s (maximo)
 ```
 1. Circuit breaker permite? → Si no, skip
 2. Autenticar en Odoo
-3. Buscar ordenes con state=sale/done y write_date > ultimo sync
-4. Filtrar las que ya se enviaron (idempotencia via sent_orders)
-5. Fetch batch de datos relacionados (clientes, productos, lineas)
-6. Por cada orden nueva:
+3. Primera sync (seed)? → Registra ultimas 30 ordenes SIN enviar webhooks, setea last_sync_at, y retorna
+4. Buscar ordenes con state=sale/done y write_date > ultimo sync
+5. Filtrar las que ya se enviaron (idempotencia via sent_orders)
+6. Fetch batch de datos relacionados (clientes, productos, lineas)
+7. Por cada orden nueva:
    ├── Transformar a payload
    ├── Enviar webhook
    ├── OK → marcar en sent_orders
    └── Fallo → meter en retry_queue
-7. Actualizar last_sync_at
-8. Procesar retry_queue pendientes
-9. Registrar sync_log
-10. Actualizar circuit breaker (exito/fallo)
+8. Trim sent_orders a maximo 30 por conexion (rotacion FIFO)
+9. Actualizar last_sync_at
+10. Procesar retry_queue pendientes
+11. Registrar sync_log
+12. Actualizar circuit breaker (exito/fallo)
 ```
 
 **scheduler.py** - Orquesta todo. Crea un asyncio.Task independiente por conexion:

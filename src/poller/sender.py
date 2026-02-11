@@ -25,11 +25,11 @@ class WebhookSender:
         url: str,
         payload: dict,
         webhook_secret: str = "",
-        connection_id: int = 0,
+        connection_external_id: str = "",
     ) -> None:
         headers = {
             "Content-Type": "application/json",
-            "X-Odoo-Connection-Id": str(connection_id),
+            "X-Odoo-Connection-Id": connection_external_id,
         }
         if webhook_secret:
             headers["X-Webhook-Secret"] = webhook_secret
@@ -38,8 +38,8 @@ class WebhookSender:
             response = await self._http.post(url, json=payload, headers=headers)
             response.raise_for_status()
             logger.info(
-                "Webhook enviado OK: connection=%d, status=%d",
-                connection_id,
+                "Webhook enviado OK: connection=%s, status=%d",
+                connection_external_id,
                 response.status_code,
             )
         except httpx.HTTPStatusError as e:

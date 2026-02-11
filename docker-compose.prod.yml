@@ -1,0 +1,13 @@
+services:
+  poller:
+    container_name: notorios-odoo-orders-sync-ms
+    build:
+      context: .
+      dockerfile: Dockerfile
+    platform: linux/amd64
+    image: ${IMAGE_NAME}
+    env_file:
+      - .env
+    restart: unless-stopped
+    volumes:
+      - ./data:/app/data

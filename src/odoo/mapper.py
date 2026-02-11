@@ -154,7 +154,7 @@ def map_order_to_webhook_payload(
     order: dict[str, Any],
     batch: BatchOdooData,
     odoo_db: str,
-    connection_id: int,
+    connection_id: str,
 ) -> dict[str, Any]:
     partner_id = _extract_id(order.get("partner_id"))
     shipping_id = _extract_id(order.get("partner_shipping_id"))

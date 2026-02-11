@@ -8,6 +8,7 @@ _SCHEMA = """
 CREATE TABLE IF NOT EXISTS connections (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
+    external_id TEXT NOT NULL DEFAULT '',
     odoo_url TEXT NOT NULL,
     odoo_db TEXT NOT NULL,
     odoo_username TEXT NOT NULL,
@@ -77,8 +78,18 @@ async def get_connection(db_path: str) -> aiosqlite.Connection:
     return db
 
 
+async def _migrate(db: aiosqlite.Connection) -> None:
+    """Aplica migraciones incrementales a tablas existentes."""
+    cursor = await db.execute("PRAGMA table_info(connections)")
+    columns = {row[1] for row in await cursor.fetchall()}
+    if "external_id" not in columns:
+        await db.execute("ALTER TABLE connections ADD COLUMN external_id TEXT NOT NULL DEFAULT ''")
+        await db.commit()
+
+
 async def init_db(db_path: str) -> aiosqlite.Connection:
     db = await get_connection(db_path)
     await db.executescript(_SCHEMA)
     await db.commit()
+    await _migrate(db)
     return db

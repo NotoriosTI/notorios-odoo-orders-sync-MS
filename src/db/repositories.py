@@ -29,6 +29,7 @@ class ConnectionRepository:
         return Connection(
             id=row["id"],
             name=row["name"],
+            external_id=row["external_id"] or "",
             odoo_url=row["odoo_url"],
             odoo_db=row["odoo_db"],
             odoo_username=row["odoo_username"],
@@ -68,12 +69,13 @@ class ConnectionRepository:
         now = _now()
         cursor = await self._db.execute(
             """INSERT INTO connections
-               (name, odoo_url, odoo_db, odoo_username, odoo_api_key,
+               (name, external_id, odoo_url, odoo_db, odoo_username, odoo_api_key,
                 webhook_url, webhook_secret, poll_interval_seconds, enabled,
                 circuit_state, circuit_failure_count, created_at, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 conn.name,
+                conn.external_id,
                 conn.odoo_url,
                 conn.odoo_db,
                 conn.odoo_username,
@@ -98,12 +100,13 @@ class ConnectionRepository:
         now = _now()
         await self._db.execute(
             """UPDATE connections SET
-               name=?, odoo_url=?, odoo_db=?, odoo_username=?, odoo_api_key=?,
+               name=?, external_id=?, odoo_url=?, odoo_db=?, odoo_username=?, odoo_api_key=?,
                webhook_url=?, webhook_secret=?, poll_interval_seconds=?, enabled=?,
                updated_at=?
                WHERE id=?""",
             (
                 conn.name,
+                conn.external_id,
                 conn.odoo_url,
                 conn.odoo_db,
                 conn.odoo_username,

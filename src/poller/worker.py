@@ -127,14 +127,14 @@ class PollWorker:
                 last_write_date = self._conn.last_sync_at
                 for order in new_orders:
                     payload = map_order_to_webhook_payload(
-                        order, batch, self._conn.odoo_db, self._conn.id
+                        order, batch, self._conn.odoo_db, self._conn.external_id
                     )
                     try:
                         await self._sender.send(
                             self._conn.webhook_url,
                             payload,
                             self._conn.webhook_secret,
-                            self._conn.id,
+                            self._conn.external_id,
                         )
                         await self._sent_repo.mark_sent(
                             SentOrder(
@@ -256,7 +256,7 @@ class PollWorker:
                     self._conn.webhook_url,
                     payload,
                     self._conn.webhook_secret,
-                    self._conn.id,
+                    self._conn.external_id,
                 )
                 await self._retry_repo.update_status(item.id, RetryStatus.SENT)
                 await self._sent_repo.mark_sent(

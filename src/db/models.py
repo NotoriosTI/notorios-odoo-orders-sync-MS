@@ -21,6 +21,7 @@ class RetryStatus(enum.Enum):
 class Connection:
     id: int | None = None
     name: str = ""
+    external_id: str = ""  # ID generado por StockMaster para X-Odoo-Connection-Id
     odoo_url: str = ""
     odoo_db: str = ""
     odoo_username: str = ""
