@@ -1,6 +1,6 @@
 services:
   poller:
-    container_name: notorios-odoo-orders-sync-ms
+    container_name: notorios-odoo-poller-orders-ms
     build:
       context: .
       dockerfile: Dockerfile
